@@ -1,0 +1,7 @@
+Alter DataBase[RandomCode] SET SINGLE_USER WITH ROLLBACK IMMEDIATE
+
+GO
+
+DROP DATABASE [RandomCode]
+
+GO
