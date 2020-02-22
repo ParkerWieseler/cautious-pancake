@@ -1,7 +1,7 @@
-USE [Master]
+USE [master]
 
 GO
 
-Create DataBase[RandomCode]
+Create DataBase [RandomCode]
 
 GO

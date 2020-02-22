@@ -2,7 +2,7 @@ USE [RandomCode]
 
 GO
 
-Create Table [Codes]
+Create Table [dbo].[Codes]
 (
     [ID] INT PRIMARY KEY IDENTITY,
     [SeedValue] INT UNIQUE NOT NULL,

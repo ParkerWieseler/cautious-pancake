@@ -2,27 +2,36 @@ using System;
 using System.Collections.Generic;
 using System.Data.SqlClient;
 using System.IO;
+using Microsoft.Azure.Storage.Blob;
+
 
 namespace CodeFlip.CodeJar.Api
 {
+
     public class SQL
     {
-        public SQL (string connectionString, string filePath)
+        public SQL (string connectionString, Uri filePath,
+
+        //arguments for the DownloadRangeToByteArray
+        byte[] target, int index, long? blobOffset, long? length, Microsoft.Azure.Storage.AccessCondition accessCondition = null, 
+        BlobRequestOptions options = null, Microsoft.Azure.Storage.OperationContext operationContext = null)
         {
             Connection = new SqlConnection(connectionString);
-            FilePath = filePath;
+            
+            var FilePath = new CloudBlockBlob(filePath).DownloadRangeToByteArray(target, index, blobOffset, length, accessCondition, options, operationContext);
         }
 
         public SqlConnection Connection {get; set;}
-        public string FilePath {get; set;}
+        public CloudBlockBlob FilePath {get; set;}
 
+       
         public long[] UpdateOffset (int batchSize, SqlCommand command)
         {
             var firstAndLastOffset = new long[2];
             var offsetIncrement = batchSize * 4;
 
             command.CommandText = @"Update Offset Set OffsetValue = OffsetValue + @offsetIncrement
-                                    OUTPUT INSERT.OffsetValue
+                                    OUTPUT INSERTED.OffsetValue
                                     WHERE ID = 1";
             command.Parameters.AddWithValue("@offsetIncrement", offsetIncrement);
             var updatedOffset = (long)command.ExecuteScalar();
@@ -35,7 +44,8 @@ namespace CodeFlip.CodeJar.Api
 
         public void CreateDigitalCode (int batchSize, DateTime dateActive, SqlCommand command)
         {
-            using(BinaryReader reader = new BinaryReader(File.Open(FilePath, FileMode.Open)))
+            
+            using(BinaryReader reader = new BinaryReader(FilePath));
             {
                 var firstAndLastOffset = UpdateOffset(batchSize, command);
 
@@ -260,7 +270,7 @@ namespace CodeFlip.CodeJar.Api
             using(var command = Connection.CreateCommand())
             {
                 command.CommandText = @"Update Codes SET [State] = @redeemed
-                                        OUTPUT INSERT.ID
+                                        OUTPUT INSERTED.ID
                                          WHERE [SeedValue] = @seedValue
                                          AND [State] = @active";
                 command.Parameters.AddWithValue("@redeemed", States.Redeemed);
@@ -288,7 +298,7 @@ namespace CodeFlip.CodeJar.Api
 
             using(var command = Connection.CreateCommand())
             {
-                command.CommandText =@"SELECT PromotionSize FROM Promotion WHERE ID = id";
+                command.CommandText = @"SELECT PromotionSize FROM Promotion WHERE ID = id";
                 command.Parameters.AddWithValue("@id", id);
 
                 using(var reader = command.ExecuteReader())

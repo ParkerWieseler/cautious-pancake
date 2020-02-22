@@ -2,11 +2,11 @@ USE [RandomCode]
 
 GO
 
-Create Table [Offset]
+Create Table [dbo].[Offset]
 (
     [ID] INT PRIMARY KEY IDENTITY,
     [OffsetValue] BIGINT NOT NULL,
 );
 
-INSERT INTO Value(ID, OffsetValue)
-Values(1,1);
+INSERT INTO  Offset (ID, OffsetValue)
+Values(1,0);

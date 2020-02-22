@@ -3,7 +3,7 @@ Use [RandomCode]
 GO
 
 
-Create Table [Promotion]
+Create Table [dbo].[Promotion]
 (
     [ID] int PRIMARY KEY IDENTITY (1,1),
     [PromotionName] VARCHAR(50) NOT NULL,
