@@ -29,8 +29,8 @@ namespace CodeFlip.CodeJar.Api
 
             using(var command = Connection.CreateCommand())
             {
-                command.CommandText = @"UPDATE [Offsets] SET [OffsetValue] = [OffsetValue] + @offsetIncrement
-                                        OUTPUT INSERTED.[OffsetValue]
+                command.CommandText = @"UPDATE [Offsets] SET OffsetValue = OffsetValue + @offsetIncrement
+                                        OUTPUT INSERTED.OffsetValue
                                         WHERE ID = 1";
                 command.Parameters.AddWithValue("@offsetIncrement", offsetIncrement);
                 var updatedOffset = (long)command.ExecuteScalar();
