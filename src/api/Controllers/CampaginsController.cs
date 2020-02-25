@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Mvc;
 using CodeFlip.CodeJar.Api.Models;
 using Microsoft.Extensions.Configuration;
+using System.Data.SqlClient;
 
 namespace CodeFlip.CodeJar.Api.Controllers
 {
@@ -9,19 +10,21 @@ namespace CodeFlip.CodeJar.Api.Controllers
     public class CampaginsController : ControllerBase
     {
 
-        private readonly IConfiguration _config;
+         public CampaginsController(IConfiguration config)
+        {
+            _config = config;
+        }
+
+        private IConfiguration _config;
 
         [HttpGet("campaigns")]
         public IActionResult GetAllCampaigns()
         {
-            var sql = new SQL(_config.GetConnectionString("Storage"), _config.GetSection("SeedBlobUrl"));
-
-            sql.GetPromotions();
-            return Ok();
+            var sql = new SQL(connectionString: _config.GetConnectionString("Storage"));
+            
+            return Ok(sql.GetPromotions());
             
         }
-
-
 
         [HttpGet("campaigns/{id}")]
         public IActionResult GetCampaign(int id, [FromQuery] int page)
@@ -32,28 +35,35 @@ namespace CodeFlip.CodeJar.Api.Controllers
         }
 
         [HttpPost("campaigns")]
-        public IActionResult CreateCampaign(Promotion promotion)
+        public IActionResult CreateBatch([FromBody] CreateCampaignRequest request)
         {
-            
-            if(promotion.DateActive < promotion.DateExpires && promotion.DateActive.Date <= promotion.DateExpires)
+            if(request.CodesNumber >= 1 && request.CodesNumber <= 3000)
             {
-                var sql = new SQL(_config.GetConnectionString("Storage"), _config.GetSection("SeedBlobUrl");
+            var sql = new SQL(connectionString: _config.GetConnectionString("Storage"));
 
-                sql.CreateBatch(promotion);
+            var file = new CloudReader(filePath: _config.GetSection("File")["SeedBlobUrl"]);
+
+                var promotion = new Promotion()
+                {
+                    Name = request.Name,
+                    BatchSize = request.CodesNumber
+                };
+
+                var firstAndLastOffset = sql.UpdateOffset(promotion.BatchSize);
+
+                var codes = file.GenerateCodes(firstAndLastOffset);
+
+                sql.CreateBatch(promotion, codes);
                 return Ok(promotion);
             }
-            else
-            {
-                return BadRequest();
-            }
-           
+
+            return BadRequest();
         }
 
         [HttpDelete("campaigns/{id}")]
         public IActionResult DeactivateCampaign(int id, [FromBody] Promotion promotion)
         {
-            //run the deactivate Promotion method from the SQL class.
-            var sql = new SQL(_config.GetConnectionString("Storage"), _config.GetSection("SeedBlobUrl"));
+            var sql = new SQL(connectionString: _config.GetConnectionString("Storage"));
 
             sql.DeactivatePromotion(promotion);
 
@@ -63,7 +73,9 @@ namespace CodeFlip.CodeJar.Api.Controllers
         [HttpGet("campaigns/{id}/codes")]
         public IActionResult GetCodes([FromRoute] int id, [FromQuery] int page)
         {
-            var sql = new SQL(_config.GetConnectionString("Storage"), _config.GetSection("SeedBlobUrl"));
+            var sql = new SQL(connectionString: _config.GetConnectionString("Storage"));
+
+            var file = new CloudReader(filePath: _config.GetSection("File")["SeedBlobUrl"]);
 
             var pageSize = Convert.ToInt32(_config.GetSection("Pagination")["PageNumber"]);
 
@@ -82,7 +94,7 @@ namespace CodeFlip.CodeJar.Api.Controllers
             var connectionString = _config.GetConnectionString("Storage");
             var alphabet = _config.GetSection("Base26")["alphabet"];
             
-            var sql = new SQL(_config.GetConnectionString("Storage"), _config.GetSection("SeedBlobUrl"));
+            var sql = new SQL(connectionString: _config.GetConnectionString("Storage"));
 
             for (var i = 1; i <= code.Length; i++)
             {
@@ -98,7 +110,7 @@ namespace CodeFlip.CodeJar.Api.Controllers
 
             var alphabet = _config.GetSection("Base26")["alphabet"];
             
-            var sql = new SQL(_config.GetConnectionString("Storage"), _config.GetSection("SeedBlobUrl"));
+            var sql = new SQL(connectionString: _config.GetConnectionString("Storage"));
 
             var codeID = sql.CheckIfCodeCanBeRedeemed(code, alphabet);
 

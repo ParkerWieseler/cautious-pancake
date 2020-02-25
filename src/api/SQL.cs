@@ -10,76 +10,56 @@ namespace CodeFlip.CodeJar.Api
 
     public class SQL
     {
-        public SQL (string connectionString, Uri filePath,
+        public SQL (string connectionString)
 
-        //arguments for the DownloadRangeToByteArray
-        byte[] target, int index, long? blobOffset, long? length, Microsoft.Azure.Storage.AccessCondition accessCondition = null, 
-        BlobRequestOptions options = null, Microsoft.Azure.Storage.OperationContext operationContext = null)
         {
             Connection = new SqlConnection(connectionString);
-            
-            var FilePath = new CloudBlockBlob(filePath).DownloadRangeToByteArray(target, index, blobOffset, length, accessCondition, options, operationContext);
         }
 
+
         public SqlConnection Connection {get; set;}
-        public CloudBlockBlob FilePath {get; set;}
 
        
-        public long[] UpdateOffset (int batchSize, SqlCommand command)
+        public long[] UpdateOffset (int batchSize)
         {
             var firstAndLastOffset = new long[2];
             var offsetIncrement = batchSize * 4;
 
-            command.CommandText = @"Update Offset Set OffsetValue = OffsetValue + @offsetIncrement
-                                    OUTPUT INSERTED.OffsetValue
-                                    WHERE ID = 1";
-            command.Parameters.AddWithValue("@offsetIncrement", offsetIncrement);
-            var updatedOffset = (long)command.ExecuteScalar();
+            Connection.Open();
 
-            firstAndLastOffset[0] = updatedOffset - offsetIncrement;
-            firstAndLastOffset[1] = updatedOffset;
+            using(var command = Connection.CreateCommand())
+            {
+                command.CommandText = @"UPDATE [Offsets] SET [OffsetValue] = [OffsetValue] + @offsetIncrement
+                                        OUTPUT INSERTED.[OffsetValue]
+                                        WHERE ID = 1";
+                command.Parameters.AddWithValue("@offsetIncrement", offsetIncrement);
+                var updatedOffset = (long)command.ExecuteScalar();
 
+                firstAndLastOffset[0] = updatedOffset - offsetIncrement;
+                firstAndLastOffset[1] = updatedOffset;
+
+            }
+
+           Connection.Close();
             return firstAndLastOffset;
         }
 
-        public void CreateDigitalCode (int batchSize, DateTime dateActive, SqlCommand command)
+        public void InsertCodes (List<Code> codes, SqlCommand command)
         {
-            
-            using(BinaryReader reader = new BinaryReader(FilePath));
-            {
-                var firstAndLastOffset = UpdateOffset(batchSize, command);
-
-                if(firstAndLastOffset[0] % 4 != 0)
-                {
-                    throw new ArgumentException("Offset Must be divisable by 4");
-                }
-
-                for(var i = firstAndLastOffset[0]; i < firstAndLastOffset[1]; i +=4)
-                {
-                    reader.BaseStream.Position = i;
-
-                    var seedValue = reader.ReadInt32();
+                    foreach(var code in codes)
+                  {
+                    command.CommandText = @"
+                        INSERT INTO Code (State, SeedValue)
+                        VALUES (@state, @seedValue)";
 
                     command.Parameters.Clear();
-
-                    command.CommandText = @"INSERT INTO Codes ([State], [SeedValue] VALUES (@seedValue, @stateGenerated))";
-                    command.Parameters.AddWithValue("@stateGenerated", States.Generated);
-                    command.Parameters.AddWithValue("@seedValue", seedValue);
+                    command.Parameters.AddWithValue("@state", States.Active);
+                    command.Parameters.AddWithValue("@seedValue", code.SeedValue);
                     command.ExecuteNonQuery();
-
-                    if(dateActive.Date == DateTime.Now.Date)
-                    {
-                        command.CommandText = @"Update Codes SET [State] = @stateActive
-                                                WHERE SeedValue = @seedValue";
-                        command.Parameters.AddWithValue("@stateActive", States.Active);
-                        command.Parameters.AddWithValue("@seedValue", seedValue);
-                        command.ExecuteNonQuery();
-                    }
-                }
-            }
+                 }
         }
 
-        public void CreateBatch(Promotion promotion)
+        public void CreateBatch(Promotion promotion, List<Code> codes)
         {
             SqlTransaction transaction;
 
@@ -96,16 +76,14 @@ namespace CodeFlip.CodeJar.Api
                 command.CommandText = @"Declare @codeIDStart int
                                         SET @codeIdStart = (SELECT ISNULL(MAX(CodeIDEnd), 0)FROM Promotion) + 1
                                         
-                                        INSERT INTO Promotion (PromotionName, CodeIDStart, PromotionSize, DateActive, DateExpires)
-                                        Values (@promotionName, @codeIDStart, @promotionSize, @dateActive, @dateActive)
+                                        INSERT INTO Promotion (PromotionName, CodeIDStart, PromotionSize)
+                                        Values (@promotionName, @codeIDStart, @promotionSize)
                                         SELECT SCOPE_IDENTITY()";
-                command.Parameters.AddWithValue("@promotionName", promotion.PromotionName);
+                command.Parameters.AddWithValue("@promotionName", promotion.Name);
                 command.Parameters.AddWithValue("@promotionSize", promotion.BatchSize);
-                command.Parameters.AddWithValue("@dateActive", promotion.DateActive);
-                command.Parameters.AddWithValue("@dateExpires", promotion.DateExpires);
                 promotion.ID = Convert.ToInt32(command.ExecuteScalar());
 
-                CreateDigitalCode(promotion.BatchSize, promotion.DateActive, command);
+                InsertCodes(codes, command);
 
                 transaction.Commit();
             }
@@ -128,7 +106,7 @@ namespace CodeFlip.CodeJar.Api
 
             using(var command = Connection.CreateCommand())
             {
-                command.CommandText = @"SELECT * FROM Codes WHERE [SeedValue] = @seedValue";
+                command.CommandText = @"SELECT * FROM Code WHERE [SeedValue] = @seedValue";
                 command.Parameters.AddWithValue("@seedValue", seedValue);
 
                 using(var reader = command.ExecuteReader())
@@ -163,7 +141,7 @@ namespace CodeFlip.CodeJar.Api
                                         SET @codeIDStart = (SELECT CodeIDStart FROM Promotion WHERE ID = promotionID)
                                         SET @codeIDStart = (SELECT CodeIDEnd FROM Promotion WHERE ID = promotionID)
                                         
-                                        Select * FROM Codes WHERE ID BETWEEN @codeIDStart AND @codeIDEnd
+                                        Select * FROM Code WHERE ID BETWEEN @codeIDStart AND @codeIDEnd
                                         ORDER BY ID OFFSET @page ROWS FETCH NEXT @pageSize ROWS ONLY";
                 command.Parameters.AddWithValue("@page", p);
                 command.Parameters.AddWithValue("@pageSize", pageSize);
@@ -208,12 +186,10 @@ namespace CodeFlip.CodeJar.Api
                         var promotion = new Promotion()
                         {
                             ID = (int)reader["ID"],
-                            PromotionName = (string)reader["PromotionName"],
+                            Name = (string)reader["PromotionName"],
                             CodeIDStart = (int)reader["CodeIDStart"],
                             CodeIDEnd = (int)reader["CodeIDEnd"],
                             BatchSize = (int)reader["PromotionSize"],
-                            DateActive = (DateTime)reader["DateActive"],
-                            DateExpires = (DateTime)reader["DateExpires"]
                         };
 
                         promotions.Add(promotion);
@@ -234,7 +210,7 @@ namespace CodeFlip.CodeJar.Api
 
             using(var command = Connection.CreateCommand())
             {
-                command.CommandText =@"Update Codes SET [State] = @inactive WHERE [SeedValue] = @seedValue AND [State] = @active";
+                command.CommandText =@"Update Code SET [State] = @inactive WHERE [SeedValue] = @seedValue";
                 command.Parameters.AddWithValue("@seedValue", seedValue);
                 command.Parameters.AddWithValue("@inactive", States.Inactive);
                 command.Parameters.AddWithValue("@active", States.Active);
@@ -248,7 +224,7 @@ namespace CodeFlip.CodeJar.Api
 
             using(var command = Connection.CreateCommand())
             {
-                command.CommandText =@"Update Codes SET [State] = @inactive WHERE ID BETWEEN @codeIDStart AND @codeIDEnd AND [State] = @active";
+                command.CommandText =@"Update Code SET [State] = @inactive WHERE ID BETWEEN @codeIDStart AND @codeIDEnd";
                 command.Parameters.AddWithValue("@inactive", States.Inactive);
                 command.Parameters.AddWithValue("@active", States.Active);
                 command.Parameters.AddWithValue("@codeIDStart", promotion.CodeIDStart);
@@ -269,10 +245,9 @@ namespace CodeFlip.CodeJar.Api
 
             using(var command = Connection.CreateCommand())
             {
-                command.CommandText = @"Update Codes SET [State] = @redeemed
+                command.CommandText = @"Update Code SET [State] = @redeemed
                                         OUTPUT INSERTED.ID
-                                         WHERE [SeedValue] = @seedValue
-                                         AND [State] = @active";
+                                         WHERE [SeedValue] = @seedValue";
                 command.Parameters.AddWithValue("@redeemed", States.Redeemed);
                 command.Parameters.AddWithValue("@active", States.Active);
                 command.Parameters.AddWithValue("@seedValue", seedValue);

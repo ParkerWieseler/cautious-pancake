@@ -1,4 +1,4 @@
-Use [RandomCode]
+Use [RandomCodes]
 
 GO
 
@@ -10,7 +10,6 @@ Create Table [dbo].[Promotion]
     [CodeIDStart] int UNIQUE NOT NULL,
     [CodeIDEnd] AS [CodeIDStart] + [PromotionSize] -1,
     [PromotionSize] int NOT NULL,
-    [DateActive] DateTime NOT NULL,
-    [DateExpires] DateTime NOT NULL
+   
 );
 

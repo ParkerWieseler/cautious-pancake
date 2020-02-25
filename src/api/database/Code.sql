@@ -1,8 +1,8 @@
-USE [RandomCode]
+USE [RandomCodes]
 
 GO
 
-Create Table [dbo].[Codes]
+Create Table [dbo].[Code]
 (
     [ID] INT PRIMARY KEY IDENTITY,
     [SeedValue] INT UNIQUE NOT NULL,

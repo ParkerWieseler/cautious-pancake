@@ -7,5 +7,6 @@ namespace CodeFlip.CodeJar.Api
         public int ID {get; set;}
         public string State {get; set;}
         public string StringValue {get; set;}
+        public int SeedValue {get; set;}
     }
 }
