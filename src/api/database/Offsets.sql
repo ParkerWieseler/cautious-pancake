@@ -1,14 +1,15 @@
-USE [RandomCode]
+USE [Exam]
 
 GO
 
-Create Table [dbo].[Offsets]
+CREATE TABLE [Offsets]
 (
-    [ID] INT PRIMARY KEY IDENTITY,
+    [ID] INT PRIMARY KEY NOT NULL,
     [OffsetValue] BIGINT NOT NULL,
 )
 
 GO
 
 INSERT INTO  [Offsets] (ID, OffsetValue)
-Values(1,0);
+VALUES(1,0)
+

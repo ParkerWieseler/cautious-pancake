@@ -200,6 +200,36 @@ namespace CodeFlip.CodeJar.Api
             return promotions;
         }
 
+        public Promotion GetPromotionID(int id)
+        {
+            var promotion = new Promotion();
+
+            Connection.Open();
+
+            using(var command = Connection.CreateCommand())
+            {
+                command.CommandText =@"SELECT [ID], [PromotionName], [BatchSize] FROM Promotion
+                                    WHERE [ID] = @id";
+                command.Parameters.AddWithValue("@id", id);
+
+                using(var reader = command.ExecuteReader())
+                {
+                    if(reader.Read())
+                    {
+                        promotion.ID = (int)reader["ID"];
+                        promotion.Name = (string)reader["PromotionName"];
+                        promotion.BatchSize = (int)reader["PromotionSize"];
+                    }
+                    else
+                    {
+                        return null;
+                    }
+                }
+            }
+            Connection.Close();
+            return promotion;
+        }
+
         public void DeactivateCode(string alphabet, string stringValue)
         {
 
@@ -233,35 +263,48 @@ namespace CodeFlip.CodeJar.Api
             }
         }
 
-        public int CheckIfCodeCanBeRedeemed(string alphabet, string stringValue)
+        public bool CheckIfCodeCanBeRedeemed(int seedValue, string email)
         {
-            var codeID = 0;
-
-            var convertCode = new CodeConverter(alphabet);
-
-            var seedValue = convertCode.ConvertFromCode(stringValue);
-
+            var affected = 0;
             Connection.Open();
 
-            using(var command = Connection.CreateCommand())
+            var transaction = Connection.BeginTransaction();
+            var command = Connection.CreateCommand();
+            command.Transaction = transaction;
+
+            try
             {
-                command.CommandText = @"Update Code SET [State] = @redeemed
-                                        OUTPUT INSERTED.ID
-                                         WHERE [SeedValue] = @seedValue";
+                command.CommandText = @"
+                    UPDATE Code SET [State] = @redeemed
+                    WHERE SeedValue = @seedValue
+                    AND [State] = @active
+                ";
                 command.Parameters.AddWithValue("@redeemed", States.Redeemed);
                 command.Parameters.AddWithValue("@active", States.Active);
                 command.Parameters.AddWithValue("@seedValue", seedValue);
-                codeID = (int)command.ExecuteScalar();
+                command.Parameters.AddWithValue("@email", email);
+                affected = command.ExecuteNonQuery();
+
+                command.CommandText = @"
+                    INSERT INTO RedeemedList (CodeSeedValue, Email)
+                    VALUES (@seedValue, @email)
+                ";
+                command.ExecuteNonQuery();
+                transaction.Commit();
+            }
+            catch(Exception e)
+            {
+                transaction.Rollback();
+                return false;
             }
 
-            if(codeID != 0)
+            Connection.Close();
+
+            if(affected > 0)
             {
-                return codeID;
+                return true;
             }
-            else
-            {
-                return -1;
-            }
+            return false;
         }
 
         public int PageCount(int id)

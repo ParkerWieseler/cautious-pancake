@@ -1,10 +1,13 @@
-USE [RandomCodes]
+USE [Exam]
 
 GO
 
-Create Table [dbo].[Code]
+CREATE TABLE [Code]
 (
     [ID] INT PRIMARY KEY IDENTITY,
     [SeedValue] INT UNIQUE NOT NULL,
     [State] TINYINT NOT NULL
-);
+)
+
+GO
+

@@ -30,7 +30,16 @@ namespace CodeFlip.CodeJar.Api.Controllers
         public IActionResult GetCampaign(int id, [FromQuery] int page)
         {
 
-            return Ok();
+            var sql = new SQL(connectionString: _config.GetConnectionString("Storage"));
+
+            var promotion = sql.GetPromotionID(id);
+
+            if(promotion == null)
+            {
+                return NotFound();
+            }
+
+            return Ok(promotion);
            
         }
 
@@ -104,21 +113,24 @@ namespace CodeFlip.CodeJar.Api.Controllers
         }
 
         [HttpPost("codes/{code}")]
-        public IActionResult RedeemCode([FromRoute] string code)
+        public IActionResult RedeemCode([FromRoute] string code, [FromBody] string email)
         {
-            var connectionString = _config.GetConnectionString("Storage");
-
-            var alphabet = _config.GetSection("Base26")["alphabet"];
-            
             var sql = new SQL(connectionString: _config.GetConnectionString("Storage"));
 
-            var codeID = sql.CheckIfCodeCanBeRedeemed(code, alphabet);
+            var alphabet = new CodeConverter(_config.GetSection("Base26")["Alphabet"]);
 
-            if (codeID != -1)
+            var seedValue = alphabet.ConvertFromCode(code);
+            
+            var isRedeemed = sql.CheckIfCodeCanBeRedeemed(seedValue, email);
+
+
+            if(isRedeemed)
             {
-                return Ok(codeID);
+                return Ok();
             }
             return BadRequest();
+
+          
         }
     }
 }
