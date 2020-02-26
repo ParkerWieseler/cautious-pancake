@@ -208,7 +208,7 @@ namespace CodeFlip.CodeJar.Api
 
             using(var command = Connection.CreateCommand())
             {
-                command.CommandText =@"SELECT [ID], [PromotionName], [BatchSize] FROM Promotion
+                command.CommandText =@"SELECT [ID], [PromotionName], [PromotionSize] FROM Promotion
                                     WHERE [ID] = @id";
                 command.Parameters.AddWithValue("@id", id);
 

@@ -12,4 +12,3 @@ GO
 
 INSERT INTO  [Offsets] (ID, OffsetValue)
 VALUES(1,0)
-

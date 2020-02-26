@@ -13,5 +13,3 @@ CREATE TABLE [Promotion]
    
 )
 GO
-
-

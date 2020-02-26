@@ -27,7 +27,7 @@ namespace CodeFlip.CodeJar.Api.Controllers
         }
 
         [HttpGet("campaigns/{id}")]
-        public IActionResult GetCampaign(int id, [FromQuery] int page)
+        public IActionResult GetCampaign(int id)
         {
 
             var sql = new SQL(connectionString: _config.GetConnectionString("Storage"));
