@@ -74,9 +74,11 @@ namespace CodeFlip.CodeJar.Api.Controllers
         {
             var sql = new SQL(connectionString: _config.GetConnectionString("Storage"));
 
-            sql.DeactivatePromotion(promotion);
-
-            return Ok();
+            if(sql.DeactivatePromotion(promotion))
+            {
+                return Ok();
+            }
+            return BadRequest();
         }
 
         [HttpGet("campaigns/{id}/codes")]
@@ -98,17 +100,16 @@ namespace CodeFlip.CodeJar.Api.Controllers
         }
 
         [HttpDelete("campaigns/{campaignId}/codes/{code}")]
-        public IActionResult DeactivateCode([FromRoute] int campaignId, [FromRoute] string[] code)
+        public IActionResult DeactivateCode([FromRoute] int campaignId, [FromRoute] string code)
         {
             var connectionString = _config.GetConnectionString("Storage");
+
             var alphabet = _config.GetSection("Base26")["alphabet"];
-            
+
             var sql = new SQL(connectionString: _config.GetConnectionString("Storage"));
 
-            for (var i = 1; i <= code.Length; i++)
-            {
-                sql.DeactivateCode(code[i - 1], alphabet);
-            }
+            sql.DeactivateCode(alphabet, code);
+
             return Ok();
         }
 
@@ -121,16 +122,35 @@ namespace CodeFlip.CodeJar.Api.Controllers
 
             var seedValue = alphabet.ConvertFromCode(code);
             
-            var isRedeemed = sql.CheckIfCodeCanBeRedeemed(seedValue, email);
+            var redeemed = sql.CheckIfCodeCanBeRedeemed(seedValue, email);
 
 
-            if(isRedeemed)
+            if(redeemed)
             {
                 return Ok();
             }
             return BadRequest();
+        }
 
-          
+        [HttpGet("codes/{code}")]
+        public IActionResult SearchCode([FromRoute]string code)
+        {
+            var sql = new SQL(connectionString: _config.GetConnectionString("Storage"));
+
+            var alphabet = new CodeConverter(_config.GetSection("Base26")["Alphabet"]);
+            
+            var searchCode = sql.SearchCode(code, alphabet);
+
+            if(searchCode == null)
+            {
+                return NotFound();
+            }
+            else
+            {
+                return Ok(searchCode);
+            }
+
+
         }
     }
 }

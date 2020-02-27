@@ -177,7 +177,7 @@ namespace CodeFlip.CodeJar.Api
 
             using(var command = Connection.CreateCommand())
             {
-                command.CommandText =@"SELECT * FROM Promotion";
+                command.CommandText = @"SELECT * FROM Promotion";
 
                 using(var reader = command.ExecuteReader())
                 {
@@ -248,8 +248,9 @@ namespace CodeFlip.CodeJar.Api
             }
         }
 
-        public void DeactivatePromotion (Promotion promotion)
+        public bool DeactivatePromotion (Promotion promotion)
         {
+            int deactivateCode;
             Connection.Open();
 
             using(var command = Connection.CreateCommand())
@@ -259,8 +260,13 @@ namespace CodeFlip.CodeJar.Api
                 command.Parameters.AddWithValue("@active", States.Active);
                 command.Parameters.AddWithValue("@codeIDStart", promotion.CodeIDStart);
                 command.Parameters.AddWithValue("@codeIDEnd", promotion.CodeIDEnd);
-                command.ExecuteNonQuery();
+                deactivateCode = command.ExecuteNonQuery();
             }
+            if(deactivateCode >= 1)
+            {
+                return true;
+            }
+            return false;
         }
 
         public bool CheckIfCodeCanBeRedeemed(int seedValue, string email)
@@ -305,6 +311,35 @@ namespace CodeFlip.CodeJar.Api
                 return true;
             }
             return false;
+        }
+
+        public Code SearchCode(string stringValue, CodeConverter convertCode)
+        {
+            var code = new Code();
+            var seedValue = convertCode.ConvertFromCode(stringValue);
+
+            code.SeedValue = seedValue;
+            code.StringValue = stringValue;
+
+            Connection.Open();
+
+            using(var command = Connection.CreateCommand())
+            {
+               command.CommandText = @"SELECT [State] FROM Codes
+                    WHERE SeedValue = @seedValue";
+
+                    using(var reader = command.ExecuteReader())
+                    {
+                        if(reader.Read())
+                        {
+                            code.State = States.ConvertToString((byte)reader["State"]);
+
+                        }
+                    }
+            }
+            Connection.Close();
+
+            return code.State == null ? null : code;
         }
 
         public int PageCount(int id)
