@@ -70,11 +70,11 @@ namespace CodeFlip.CodeJar.Api.Controllers
         }
 
         [HttpDelete("campaigns/{id}")]
-        public IActionResult DeactivateCampaign(int id, [FromBody] Promotion promotion)
+        public IActionResult DeactivateCampaign(int id)
         {
             var sql = new SQL(connectionString: _config.GetConnectionString("Storage"));
 
-            if(sql.DeactivatePromotion(promotion))
+            if(sql.DeactivatePromotion(id))
             {
                 return Ok();
             }

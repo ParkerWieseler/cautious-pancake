@@ -124,7 +124,7 @@ namespace CodeFlip.CodeJar.Api
             return code;
         }
 
-        public List<Code> GetCodes(int promotionID, int pageSize, int pageNumber, string alphabet)
+        public List<Code> GetCodes(int promotionID, int pageNumber, int pageSize, string alphabet)
         {
 
             var convertCode = new CodeConverter(alphabet);
@@ -250,18 +250,26 @@ namespace CodeFlip.CodeJar.Api
             }
         }
 
-        public bool DeactivatePromotion (Promotion promotion)
+        public bool DeactivatePromotion(int promotionID)
         {
             int deactivateCode;
+            var promotion = new Promotion();
             Connection.Open();
 
             using(var command = Connection.CreateCommand())
             {
-                command.CommandText =@"Update Code SET [State] = @inactive WHERE ID BETWEEN @codeIDStart AND @codeIDEnd";
-                command.Parameters.AddWithValue("@inactive", States.Inactive);
+               command.CommandText = @"
+                    DECLARE @codeIDStart int
+                    DECLARE @codeIDEnd int
+                    SET @codeIDStart = (SELECT CodeIDStart FROM Promotion WHERE ID = @promotionID)
+                    SET @codeIDEnd = (SELECT CodeIDEnd FROM Promotion WHERE ID = @promotionID)
+                    UPDATE Code SET [State] = @inactive
+                    WHERE ID BETWEEN @codeIDStart AND @codeIDEnd
+                    AND [State] = @active
+                ";
                 command.Parameters.AddWithValue("@active", States.Active);
-                command.Parameters.AddWithValue("@codeIDStart", promotion.CodeIDStart);
-                command.Parameters.AddWithValue("@codeIDEnd", promotion.CodeIDEnd);
+                command.Parameters.AddWithValue("@inactive", States.Inactive);
+                command.Parameters.AddWithValue("@promotionID", promotionID);
                 deactivateCode = command.ExecuteNonQuery();
             }
             if(deactivateCode >= 1)
@@ -327,8 +335,9 @@ namespace CodeFlip.CodeJar.Api
 
             using(var command = Connection.CreateCommand())
             {
-               command.CommandText = @"SELECT [State] FROM Codes
+               command.CommandText = @"SELECT [State] FROM Code
                     WHERE SeedValue = @seedValue";
+                    command.Parameters.AddWithValue("@seedValue", seedValue);
 
                     using(var reader = command.ExecuteReader())
                     {
