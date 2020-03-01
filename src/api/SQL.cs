@@ -129,8 +129,10 @@ namespace CodeFlip.CodeJar.Api
 
             var convertCode = new CodeConverter(alphabet);
             var codes = new List<Code>();
-
             var p = Pagination.PaginationPageNumber(pageSize, pageNumber);
+            var pages = PageCount(promotionID);
+            
+
 
             Connection.Open();
 
@@ -138,10 +140,10 @@ namespace CodeFlip.CodeJar.Api
             {
                 command.CommandText = @"Declare @codeIDStart int
                                         Declare @codeIDEnd int
-                                        SET @codeIDStart = (SELECT CodeIDStart FROM Promotion WHERE ID = promotionID)
-                                        SET @codeIDStart = (SELECT CodeIDEnd FROM Promotion WHERE ID = promotionID)
+                                        SET @codeIDStart = (SELECT CodeIDStart FROM Promotion WHERE ID = @promotionID)
+                                        SET @codeIDEnd = (SELECT CodeIDEnd FROM Promotion WHERE ID = @promotionID)
                                         
-                                        Select * FROM Code WHERE ID BETWEEN @codeIDStart AND @codeIDEnd
+                                        SELECT * FROM Code WHERE ID BETWEEN @codeIDStart AND @codeIDEnd
                                         ORDER BY ID OFFSET @page ROWS FETCH NEXT @pageSize ROWS ONLY";
                 command.Parameters.AddWithValue("@page", p);
                 command.Parameters.AddWithValue("@pageSize", pageSize);

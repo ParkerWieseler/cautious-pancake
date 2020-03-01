@@ -96,7 +96,7 @@ namespace CodeFlip.CodeJar.Api.Controllers
 
             var pages = sql.PageCount(id);
 
-            return Ok(new TableData(codes, pages));
+            return Ok(new TableData(codes, pages, page));
         }
 
         [HttpDelete("campaigns/{campaignId}/codes/{code}")]
